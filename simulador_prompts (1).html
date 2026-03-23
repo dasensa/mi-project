@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Prompts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #2a2a35;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --glow: 0 0 20px rgba(0, 229, 255, 0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: 
+      radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(0, 229, 255, 0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── LOGIN SCREEN ─── */
+  #login-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: var(--bg);
+  }
+
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 40px;
+    width: 380px;
+    position: relative;
+    box-shadow: 0 0 60px rgba(0,229,255,0.07), 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .login-card::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 20%; right: 20%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    border-radius: 2px;
+  }
+
+  .login-logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.8;
+  }
+
+  .login-title {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 32px;
+    color: var(--text);
+  }
+
+  .login-title span { color: var(--accent); }
+
+  .login-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .login-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .login-input:focus {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .login-btn {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .login-btn:hover { opacity: 0.85; }
+  .login-btn:active { transform: scale(0.99); }
+
+  .login-error {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--danger);
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .login-error.show { opacity: 1; }
+
+  /* ─── MAIN APP ─── */
+  #app {
+    display: none;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 50;
+  }
+
+  .header-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .header-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    background: rgba(0,229,255,0.08);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,229,255,0.2);
+  }
+
+  .header-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn-ghost {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--text-muted);
+    color: var(--text);
+  }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 0;
+    min-height: calc(100vh - 65px);
+  }
+
+  /* ─── FORM PANEL ─── */
+  .form-panel {
+    padding: 40px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+
+  .field-group {
+    margin-bottom: 24px;
+  }
+
+  .field-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .field-number {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .field-name {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .field-name.rol { color: #f472b6; }
+  .field-name.contexto { color: #60a5fa; }
+  .field-name.instruccion { color: #34d399; }
+  .field-name.comando { color: #fbbf24; }
+  .field-name.objetivo { color: #a78bfa; }
+  .field-name.formato { color: #fb923c; }
+  .field-name.restricciones { color: #f87171; }
+
+  .field-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-left: 32px;
+    line-height: 1.4;
+  }
+
+  .field-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 72px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .field-textarea::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 13px;
+  }
+
+  .field-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .field-textarea.rol:focus { border-color: #f472b6; box-shadow: 0 0 20px rgba(244,114,182,0.1); }
+  .field-textarea.contexto:focus { border-color: #60a5fa; box-shadow: 0 0 20px rgba(96,165,250,0.1); }
+  .field-textarea.instruccion:focus { border-color: #34d399; box-shadow: 0 0 20px rgba(52,211,153,0.1); }
+  .field-textarea.comando:focus { border-color: #fbbf24; box-shadow: 0 0 20px rgba(251,191,36,0.1); }
+  .field-textarea.objetivo:focus { border-color: #a78bfa; box-shadow: 0 0 20px rgba(167,139,250,0.1); }
+  .field-textarea.formato:focus { border-color: #fb923c; box-shadow: 0 0 20px rgba(251,146,60,0.1); }
+  .field-textarea.restricciones:focus { border-color: #f87171; box-shadow: 0 0 20px rgba(248,113,113,0.1); }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+    opacity: 0.5;
+  }
+
+  /* ─── CONTROLS ─── */
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn-generate {
+    flex: 1;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-generate::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.1));
+  }
+
+  .btn-generate:hover { opacity: 0.88; }
+  .btn-generate:active { transform: scale(0.99); }
+
+  .btn-clear {
+    padding: 14px 20px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-clear:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  /* ─── OUTPUT PANEL ─── */
+  .output-panel {
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    position: sticky;
+    top: 65px;
+    height: calc(100vh - 65px);
+    overflow-y: auto;
+  }
+
+  .output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .output-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .output-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .char-counter {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--surface2);
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  .output-box {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--text);
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 200px;
+    transition: border-color 0.3s;
+    position: relative;
+  }
+
+  .output-box.has-content {
+    border-color: rgba(0,229,255,0.2);
+  }
+
+  .output-placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 12px;
+    line-height: 2;
+  }
+
+  .output-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .btn-copy {
+    flex: 1;
+    padding: 12px;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.3);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-copy:hover {
+    background: rgba(0,229,255,0.18);
+    border-color: var(--accent);
+  }
+
+  .btn-copy.copied {
+    background: rgba(34,197,94,0.12);
+    border-color: var(--success);
+    color: var(--success);
+  }
+
+  .btn-save {
+    padding: 12px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-save:hover {
+    border-color: var(--accent3);
+    color: var(--accent3);
+  }
+
+  /* ─── HISTORY SECTION ─── */
+  .history-section {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  .history-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .history-count {
+    background: var(--surface2);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    color: var(--accent);
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .history-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .history-item:hover {
+    border-color: rgba(0,229,255,0.3);
+  }
+
+  .history-preview {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .history-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  /* ─── PROMPT TOKENS (visual in output) ─── */
+  .token-rol { color: #f472b6; font-weight: 700; }
+  .token-contexto { color: #60a5fa; font-weight: 700; }
+  .token-instruccion { color: #34d399; font-weight: 700; }
+  .token-comando { color: #fbbf24; font-weight: 700; }
+  .token-objetivo { color: #a78bfa; font-weight: 700; }
+  .token-formato { color: #fb923c; font-weight: 700; }
+  .token-restricciones { color: #f87171; font-weight: 700; }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    width: 500px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+
+  .modal h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .modal p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .modal input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    margin-bottom: 16px;
+    outline: none;
+  }
+
+  .modal input:focus { border-color: var(--accent); }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* ─── FIELD GUIDE ─── */
+  .field-guide-toggle {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .field-guide-toggle:hover,
+  .field-guide-toggle.open {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,229,255,0.07);
+  }
+
+  .field-guide-box {
+    display: none;
+    margin: 8px 0 10px 32px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.03);
+    border-left: 2px solid var(--border);
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+
+  .field-guide-box.open { display: block; }
+
+  .field-guide-box .guide-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .field-guide-box .guide-rule {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 5px;
+    align-items: flex-start;
+  }
+
+  .field-guide-box .guide-rule::before {
+    content: '→';
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .field-guide-box .guide-ex {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: rgba(0,229,255,0.04);
+    border-radius: 5px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    line-height: 1.6;
+  }
+
+  .field-guide-box .guide-ex-label {
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .rol-guide { border-left-color: #f472b6; }
+  .contexto-guide { border-left-color: #60a5fa; }
+  .instruccion-guide { border-left-color: #34d399; }
+  .comando-guide { border-left-color: #fbbf24; }
+  .objetivo-guide { border-left-color: #a78bfa; }
+  .formato-guide { border-left-color: #fb923c; }
+  .restricciones-guide { border-left-color: #f87171; }
+
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ─── ANIM ─── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in { animation: fadeIn 0.35s ease forwards; }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: rgba(0,229,255,0.2); }
+    50% { border-color: rgba(0,229,255,0.5); }
+  }
+
+  .generating { animation: pulse-border 1s ease infinite; }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--surface);
+    border: 1px solid var(--success);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--success);
+    z-index: 300;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── AI SELECTOR ─── */
+  .ai-selector-section {
+    margin-bottom: 32px;
+    padding: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    position: relative;
+  }
+
+  .ai-selector-section::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 16px; right: 16px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent3), transparent);
+    border-radius: 2px;
+  }
+
+  .ai-selector-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ai-selector-label span {
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    color: var(--accent3);
+  }
+
+  .ai-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .ai-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-btn:hover {
+    border-color: rgba(255,255,255,0.2);
+    background: var(--surface);
+  }
+
+  .ai-btn.selected {
+    border-color: var(--accent3);
+    background: rgba(245,158,11,0.07);
+    box-shadow: 0 0 12px rgba(245,158,11,0.1);
+  }
+
+  .ai-btn.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 4px; right: 6px;
+    font-size: 9px;
+    color: var(--accent3);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .ai-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .ai-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .ai-hint {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .ai-tip-box {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.15);
+    border-radius: 7px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    font-family: 'Space Mono', monospace;
+    display: none;
+  }
+
+  .ai-tip-box.show { display: block; }
+  .ai-tip-box strong { color: var(--accent3); }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .output-panel { position: relative; top: 0; height: auto; }
+    header { padding: 16px 20px; }
+    .form-panel, .output-panel { padding: 24px 20px; }
+    .ai-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN ─── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Prompt Engine</div>
+    <div class="login-title">Acceso<br><span>Restringido</span></div>
+    <label class="login-label" for="pwd">Contraseña</label>
+    <input type="password" id="pwd" class="login-input" placeholder="••••••••" autocomplete="current-password">
+    <button class="login-btn" onclick="checkLogin()">ENTRAR →</button>
+    <div class="login-error" id="login-error">Contraseña incorrecta</div>
+  </div>
+</div>
+
+<!-- ─── APP ─── -->
+<div id="app">
+  <header>
+    <div class="header-brand">
+      <div class="header-tag">v1.2</div>
+      <div class="header-title">Simulador de Prompts</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-ghost" onclick="loadTemplate()">↓ Plantilla</button>
+      <button class="btn-ghost" onclick="showChangePassword()">🔐 Contraseña</button>
+      <button class="btn-ghost" onclick="logout()">Salir</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- FORM -->
+    <div class="form-panel">
+      <div class="section-label">// Construye tu prompt estructurado</div>
+
+      <!-- AI SELECTOR -->
+      <div class="ai-selector-section">
+        <div class="ai-selector-label">
+          IA de destino <span>OPTIMIZA EL PROMPT</span>
+        </div>
+        <div class="ai-grid">
+          <button class="ai-btn" data-ai="chatgpt" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#10a37f22;">🟢</div>
+            <div><div class="ai-name">ChatGPT</div><div class="ai-hint">GPT-4o</div></div>
+          </button>
+          <button class="ai-btn" data-ai="copilot" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#0078d422;">🔵</div>
+            <div><div class="ai-name">Copilot</div><div class="ai-hint">Microsoft</div></div>
+          </button>
+          <button class="ai-btn" data-ai="gemini" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#4285f422;">🔷</div>
+            <div><div class="ai-name">Gemini</div><div class="ai-hint">Google</div></div>
+          </button>
+          <button class="ai-btn" data-ai="claude" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#d4a57422;">🟠</div>
+            <div><div class="ai-name">Claude</div><div class="ai-hint">Anthropic</div></div>
+          </button>
+          <button class="ai-btn" data-ai="perplexity" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#20b2aa22;">🔍</div>
+            <div><div class="ai-name">Perplexity</div><div class="ai-hint">Search AI</div></div>
+          </button>
+          <button class="ai-btn" data-ai="deepseek" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#6366f122;">🌊</div>
+            <div><div class="ai-name">DeepSeek</div><div class="ai-hint">R1/V3</div></div>
+          </button>
+          <button class="ai-btn" data-ai="qwen" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#f43f5e22;">🌸</div>
+            <div><div class="ai-name">Qwen</div><div class="ai-hint">Alibaba</div></div>
+          </button>
+          <button class="ai-btn" data-ai="kimi" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#8b5cf622;">🌙</div>
+            <div><div class="ai-name">Kimi Plus</div><div class="ai-hint">Moonshot</div></div>
+          </button>
+          <button class="ai-btn" data-ai="grok" onclick="selectAI(this)">
+            <div class="ai-icon" style="background:#ffffff12;">✖</div>
+            <div><div class="ai-name">Grok</div><div class="ai-hint">xAI</div></div>
+          </button>
+        </div>
+        <div class="ai-tip-box" id="ai-tip-box"></div>
+      </div>
+
+      <!-- CAMPO 1: ROL -->
+      <div class="field-group">
+        <div class="field-header">
+          <div class="field-number">1</div>
+          <div class="field-name rol">ROL</div>
+          <button class="field-guide-toggle" onclick="toggleGuide('guide-rol', this)" title="Ver instrucciones">?</button>
+        </div>
+        <div class="field-hint">¿Como quién quieres que actúe la IA?</div>
+        <div class="field-guide-box rol-guide" id="guide-rol">
+          <div class="guide-title">Cómo escribir el ROL</div>
+          <div class="guide-rule">Define una identidad profesional concreta, no genérica. Cuanto más específico, mejor calibra la IA su vocabulario y perspectiva.</div>
+          <div class="guide-rule">Incluye área de expertise, nivel de seniority y, si aplica, el sector o empresa.</div>
+          <div class="guide-rule">Puedes combinar roles: "Actúa como consultor de estrategia con experiencia en telecomunicaciones B2B".</div>
+          <div class="guide-rule">Evita roles vagos como "experto" o "profesional" sin más contexto — no añaden valor.</div>
+          <div class="guide-ex">
+            <div class="guide-ex-label">Ejemplo efectivo</div>
+            Actúa como un director de ventas B2B con 15 años en el sector telecom, acostumbrado a negociar con grandes cuentas corporativas y con dominio de metodologías SPIN y Challenger Sale.
+          </div>
+        </div>
+        <textarea id="f-rol" class="field-textarea rol" placeholder="Ej: Actúa como un experto director financiero con vocabulario técnico preciso..." rows="3"></textarea>
+      </div>
+
+      <!-- CAMPO 2: CONTEXTO -->
+      <div class="field-group">
+        <div class="field-header">
+          <div class="field-number">2</div>
+          <div class="field-name contexto">CONTEXTO</div>
+          <button class="field-guide-toggle" onclick="toggleGuide('guide-contexto', this)" title="Ver instrucciones">?</button>
+        </div>
+        <div class="field-hint">Información contextual, antecedentes, situación...</div>
+        <div class="field-guide-box contexto-guide" id="guide-contexto">
+          <div class="guide-title">Cómo escribir el CONTEXTO</div>
+          <div class="guide-rule">Describe la situación real: empresa, cliente, momento del proceso, problema existente.</div>
+          <div class="guide-rule">Incluye datos relevantes: sector, tamaño, geografía, relación previa, tensiones en juego.</div>
+          <div class="guide-rule">El contexto es el "escenario" donde la IA debe operar — sin él, la respuesta será genérica.</div>
+          <div class="guide-rule">No confundas contexto con instrucción: el contexto describe la situación, no lo que quieres que haga.</div>
+          <div class="guide-ex">
+            <div class="guide-ex-label">Ejemplo efectivo</div>
+            Somos un fabricante europeo de equipos de comunicaciones UCaaS con 200 partners en España. Estamos en fase de renovación de contrato con un partner estratégico que lleva 3 años con caída de ventas y que acaba de ser contactado por un competidor directo.
+          </div>
+        </div>
+        <textarea id="f-contexto" class="field-textarea contexto" placeholder="Ej: Perteneces a una multinacional con sede en... El cliente es... La situación actual es..." rows="3"></textarea>
+      </div>
+
+      <!-- CAMPO 3: INSTRUCCIÓN -->
+      <div class="field-group">
+        <div class="field-header">
+          <div class="field-number">3</div>
+          <div class="field-name instruccion">INSTRUCCIÓN</div>
+          <button class="field-guide-toggle" onclick="toggleGuide('guide-instruccion', this)" title="Ver instrucciones">?</button>
+        </div>
+        <div class="field-hint">¿Qué debe hacer exactamente la IA?</div>
+        <div class="field-guide-box instruccion-guide" id="guide-instruccion">
+          <div class="guide-title">Cómo escribir la INSTRUCCIÓN</div>
+          <div class="guide-rule">Es la tarea principal. Sé directo y usa verbos de acción: analizar, redactar, comparar, identificar, proponer, evaluar.</div>
+          <div class="guide-rule">Una instrucción = una tarea. Si necesitas varias, sepáralas con numeración o prioridad.</div>
+          <div class="guide-rule">Indica el alcance: "analiza solo los últimos 3 años", "considera únicamente el mercado español".</div>
+          <div class="guide-rule">No mezcles la instrucción con el objetivo ni con el formato — cada uno tiene su campo.</div>
+          <div class="guide-ex">
+            <div class="guide-ex-label">Ejemplo efectivo</div>
+            Analiza los puntos de fricción en la relación con este partner y propón un plan de retención en 3 fases, priorizando las acciones de impacto inmediato.
+          </div>
+        </div>
+        <textarea id="f-instruccion" class="field-textarea instruccion" placeholder="Ej: Debes analizar y presentar la propuesta de valor diferencial frente a la competencia..." rows="3"></textarea>
+      </div>
+
+      <!-- CAMPO 4: COMANDO -->
+      <div class="field-group">
+        <div class="field-header">
+          <div class="field-number">4</div>
+          <div class="field-name comando">COMANDO</div>
+          <button class="field-guide-toggle" onclick="toggleGuide('guide-comando', this)" title="Ver instrucciones">?</button>
+        </div>
+        <div class="field-hint">La acción concreta — verbo imperativo</div>
+        <div class="field-guide-box comando-guide" id="guide-comando">
+          <div class="guide-title">Cómo escribir el COMANDO</div>
+          <div class="guide-rule">El comando es el "cómo ejecutar" la instrucción. Usa imperativo: presenta, genera, redacta, lista, estructura, resume.</div>
+          <div class="guide-rule">Diferencia clave respecto a la instrucción: la instrucción dice QUÉ hacer, el comando dice CÓMO entregarlo.</div>
+          <div class="guide-rule">Puedes añadir granularidad: "organiza por orden de impacto", "agrupa por categorías", "empieza por el resumen ejecutivo".</div>
+          <div class="guide-rule">Comandos débiles: "hazlo bien", "sé preciso". Comandos fuertes: "presenta en 3 bloques con título, acción y métrica".</div>
+          <div class="guide-ex">
+            <div class="guide-ex-label">Ejemplo efectivo</div>
+            Estructura la respuesta en 3 bloques: (1) diagnóstico de la relación, (2) acciones inmediatas con responsable y plazo, (3) indicadores de seguimiento a 90 días.
+          </div>
+        </div>
+        <textarea id="f-comando" class="field-textarea comando" placeholder="Ej: Presenta de forma resumida, partida a partida. Genera una tabla comparativa. Redacta un email..." rows="2"></textarea>
+      </div>
+
+      <!-- CAMPO 5: OBJETIVO -->
+      <div class="field-group">
+        <div class="field-header">
+          <div class="field-number">5</div>
+          <div class="field-name objetivo">OBJETIVO</div>
+          <button class="field-guide-toggle" onclick="toggleGuide('guide-objetivo', this)" title="Ver instrucciones">?</button>
+        </div>
+        <div class="field-hint">¿Para qué? ¿Qué resultado final se espera?</div>
+        <div class="field-guide-box objetivo-guide" id="guide-objetivo">
+          <div class="guide-title">Cómo escribir el OBJETIVO</div>
+          <div class="guide-rule">Define el resultado que quieres conseguir, no la tarea. El objetivo responde a "¿para qué sirve esto?"</div>
+          <div class="guide-rule">Debe ser concreto y medible siempre que sea posible: "retener al partner", "cerrar la reunión", "reducir objeciones".</div>
+          <div class="guide-rule">El objetivo calibra el tono y la profundidad de la respuesta. Una IA que sabe tu objetivo priorizará la información relevante.</div>
+          <div class="guide-rule">Evita objetivos circulares: "el objetivo es hacer el análisis" — eso es la instrucción, no el objetivo.</div>
+          <div class="guide-ex">
+            <div class="guide-ex-label">Ejemplo efectivo</div>
+            Conseguir que el partner renueve el contrato anual y reactive su pipeline de oportunidades antes del Q2, evitando que migre a la competencia.
+          </div>
+        </div>
+        <textarea id="f-objetivo" class="field-textarea objetivo" placeholder="Ej: Convencer al cliente de la solución. Identificar oportunidades de ahorro. Cerrar la venta..." rows="2"></textarea>
+      </div>
+
+      <!-- CAMPO 6: FORMATO -->
+      <div class="field-group">
+        <div class="field-header">
+          <div class="field-number">6</div>
+          <div class="field-name formato">FORMATO</div>
+          <button class="field-guide-toggle" onclick="toggleGuide('guide-formato', this)" title="Ver instrucciones">?</button>
+        </div>
+        <div class="field-hint">Cómo debe presentarse la respuesta</div>
+        <div class="field-guide-box formato-guide" id="guide-formato">
+          <div class="guide-title">Cómo escribir el FORMATO</div>
+          <div class="guide-rule">Especifica el tipo de salida: tabla, lista, texto narrativo, email, presentación, informe, código, JSON...</div>
+          <div class="guide-rule">Indica longitud si es relevante: "máximo 200 palabras", "no más de 5 puntos", "una página A4".</div>
+          <div class="guide-rule">Define el tono cuando importa: ejecutivo, técnico, comercial, conversacional, académico, informal.</div>
+          <div class="guide-rule">Si usas markdown (ChatGPT, Claude, Gemini) puedes pedir encabezados ##, negritas, tablas — y los obtendrás formateados.</div>
+          <div class="guide-ex">
+            <div class="guide-ex-label">Ejemplo efectivo</div>
+            Formato ejecutivo, máximo 400 palabras. Empieza con un resumen de 3 líneas. Usa tabla para las acciones con columnas: Acción / Responsable / Plazo / KPI. Sin jerga técnica.
+          </div>
+        </div>
+        <textarea id="f-formato" class="field-textarea formato" placeholder="Ej: Conversacional para directivos. Lista con bullets. Markdown con tablas. Máximo 300 palabras..." rows="2"></textarea>
+      </div>
+
+      <!-- CAMPO 7: RESTRICCIONES -->
+      <div class="field-group">
+        <div class="field-header">
+          <div class="field-number">7</div>
+          <div class="field-name restricciones">RESTRICCIONES</div>
+          <button class="field-guide-toggle" onclick="toggleGuide('guide-restricciones', this)" title="Ver instrucciones">?</button>
+        </div>
+        <div class="field-hint">Lo que NO debe hacer. Límites y condiciones</div>
+        <div class="field-guide-box restricciones-guide" id="guide-restricciones">
+          <div class="guide-title">Cómo escribir las RESTRICCIONES</div>
+          <div class="guide-rule">Lista lo que la IA debe evitar: temas, palabras, enfoques, suposiciones, sesgos, fuentes.</div>
+          <div class="guide-rule">Las restricciones son el "guardarraíles" del prompt. Una IA sin restricciones asume demasiado.</div>
+          <div class="guide-rule">Úsalas para excluir lo obvio que no quieres: "no repitas lo que ya está en el contexto", "no hagas comparativas de precio", "no uses anglicismos".</div>
+          <div class="guide-rule">También sirven para acotar: "solo considera el mercado español", "responde como si el lector no tuviera formación técnica".</div>
+          <div class="guide-ex">
+            <div class="guide-ex-label">Ejemplo efectivo</div>
+            No menciones a competidores por nombre. No hagas suposiciones sobre el presupuesto del partner. Evita recomendaciones que requieran más de 2 semanas de implementación. No uses términos como "sinergia" o "disruptivo".
+          </div>
+        </div>
+        <textarea id="f-restricciones" class="field-textarea restricciones" placeholder="Ej: No uses jerga técnica. No menciones precios. Máximo 3 opciones. Sin conclusiones subjetivas..." rows="2"></textarea>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="controls">
+        <button class="btn-generate" onclick="generatePrompt()">⚡ GENERAR PROMPT</button>
+        <button class="btn-clear" onclick="clearAll()">✕ Limpiar</button>
+      </div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="output-panel">
+      <div class="output-header">
+        <div class="output-title">// Prompt generado</div>
+        <div class="output-meta">
+          <div class="char-counter" id="char-counter">0 chars</div>
+        </div>
+      </div>
+
+      <div class="output-box" id="output-box">
+        <div class="output-placeholder">Tu prompt aparecerá aquí listo para copiar y pegar en cualquier IA...</div>
+      </div>
+
+      <div class="output-actions">
+        <button class="btn-copy" id="btn-copy" onclick="copyPrompt()">⎘ COPIAR PROMPT</button>
+        <button class="btn-save" onclick="saveToHistory()">↓ Guardar</button>
+      </div>
+
+      <div class="history-section">
+        <div class="history-label">
+          HISTORIAL
+          <span class="history-count" id="history-count">0</span>
+        </div>
+        <div class="history-list" id="history-list">
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--text-muted);text-align:center;padding:16px;">
+            Sin prompts guardados
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CAMBIO CONTRASEÑA -->
+<div class="modal-overlay" id="pwd-modal">
+  <div class="modal">
+    <h3>Cambiar contraseña</h3>
+    <p>La nueva contraseña se guardará en este navegador.</p>
+    <input type="password" id="new-pwd-1" placeholder="Nueva contraseña">
+    <input type="password" id="new-pwd-2" placeholder="Confirmar contraseña">
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-generate" style="flex:0;padding:12px 24px;font-size:12px;" onclick="saveNewPassword()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── CONTRASEÑA ───
+  const DEFAULT_PWD = 'prompt2024';
+
+  function getPassword() {
+    return localStorage.getItem('sim_pwd') || DEFAULT_PWD;
+  }
+
+  function checkLogin() {
+    const input = document.getElementById('pwd').value;
+    if (input === getPassword()) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      document.getElementById('app').classList.add('fade-in');
+    } else {
+      const err = document.getElementById('login-error');
+      err.classList.add('show');
+      setTimeout(() => err.classList.remove('show'), 3000);
+      document.getElementById('pwd').value = '';
+      document.getElementById('pwd').focus();
+    }
+  }
+
+  document.getElementById('pwd').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkLogin();
+  });
+
+  function logout() {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('pwd').value = '';
+  }
+
+  function showChangePassword() {
+    document.getElementById('pwd-modal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('pwd-modal').classList.remove('show');
+  }
+
+  function saveNewPassword() {
+    const p1 = document.getElementById('new-pwd-1').value;
+    const p2 = document.getElementById('new-pwd-2').value;
+    if (!p1) { showToast('Escribe una contraseña', true); return; }
+    if (p1 !== p2) { showToast('Las contraseñas no coinciden', true); return; }
+    localStorage.setItem('sim_pwd', p1);
+    closeModal();
+    showToast('Contraseña actualizada ✓');
+  }
+
+  // ─── FIELD GUIDES ───
+  function toggleGuide(id, btn) {
+    const box = document.getElementById(id);
+    const isOpen = box.classList.contains('open');
+    box.classList.toggle('open', !isOpen);
+    btn.classList.toggle('open', !isOpen);
+    btn.textContent = isOpen ? '?' : '×';
+  }
+
+  // ─── AI SELECTOR ───
+  const AI_PROFILES = {
+    chatgpt: {
+      name: 'ChatGPT (GPT-4o)',
+      tip: '<strong>ChatGPT</strong> — Responde bien a instrucciones directas con markdown. Prefiere bloques claros y acepta prompts largos. El campo FORMATO es especialmente efectivo.',
+      prefix: '',
+      suffix: '',
+      formatHint: 'Usa markdown: tablas, listas, encabezados ##',
+      rolePrefix: 'Actúa como',
+    },
+    copilot: {
+      name: 'Microsoft Copilot',
+      tip: '<strong>Copilot</strong> — Orientado a productividad y documentos Office. Responde mejor con contexto empresarial explícito. Evita prompts demasiado abstractos.',
+      prefix: '',
+      suffix: '\n\nResponde en español. Formato apto para documentos Microsoft Office.',
+      formatHint: 'Apto para Word/Excel/PowerPoint. Estructurado.',
+      rolePrefix: 'Actúa como',
+    },
+    gemini: {
+      name: 'Google Gemini',
+      tip: '<strong>Gemini</strong> — Procesa bien el contexto multimodal y largo. Añade instrucciones de razonamiento paso a paso para mejores resultados analíticos.',
+      prefix: 'Razona paso a paso antes de responder.\n\n',
+      suffix: '',
+      formatHint: 'Incluye "piensa paso a paso" para análisis complejos.',
+      rolePrefix: 'Eres un experto en',
+    },
+    claude: {
+      name: 'Claude (Anthropic)',
+      tip: '<strong>Claude</strong> — Prefiere instrucciones con contexto rico y matices. Excelente con razonamiento complejo, análisis crítico y redacción. Evita listas excesivas en el prompt.',
+      prefix: '',
+      suffix: '',
+      formatHint: 'Prosa estructurada. Claude gestiona bien la longitud y el matiz.',
+      rolePrefix: 'Actúa como',
+    },
+    perplexity: {
+      name: 'Perplexity AI',
+      tip: '<strong>Perplexity</strong> — Motor de búsqueda + IA. Ideal para prompts que requieren información actualizada. Sé específico con fechas, fuentes o sectores que necesitas verificar.',
+      prefix: '',
+      suffix: '\n\nIncluye fuentes actualizadas y contrasta con datos recientes.',
+      formatHint: 'Pide citas y fuentes explícitas.',
+      rolePrefix: 'Actúa como',
+    },
+    deepseek: {
+      name: 'DeepSeek R1/V3',
+      tip: '<strong>DeepSeek</strong> — Fuerte en razonamiento lógico y código. El modelo R1 muestra su cadena de pensamiento. Funciona muy bien con problemas estructurados y análisis técnico.',
+      prefix: 'Piensa en profundidad antes de responder.\n\n',
+      suffix: '',
+      formatHint: 'Óptimo para análisis técnico, código y razonamiento lógico.',
+      rolePrefix: 'Eres un experto en',
+    },
+    qwen: {
+      name: 'Qwen AI Chat',
+      tip: '<strong>Qwen</strong> — Modelo de Alibaba con buen rendimiento multilingüe. Responde bien a instrucciones estructuradas. Especialmente eficaz en contexto de negocio y e-commerce asiático.',
+      prefix: '',
+      suffix: '\n\nResponde en español con precisión y detalle.',
+      formatHint: 'Instrucciones estructuradas y explícitas.',
+      rolePrefix: 'Actúa como',
+    },
+    kimi: {
+      name: 'Kimi Plus (Moonshot)',
+      tip: '<strong>Kimi Plus</strong> — Ventana de contexto extremadamente larga (hasta 1M tokens). Ideal para analizar documentos extensos. Sé detallado en el contexto, aprovecha esa capacidad.',
+      prefix: '',
+      suffix: '',
+      formatHint: 'Puedes incluir contexto muy extenso — Kimi lo procesa.',
+      rolePrefix: 'Actúa como',
+    },
+    grok: {
+      name: 'Grok (xAI)',
+      tip: '<strong>Grok</strong> — IA de xAI con acceso a X/Twitter en tiempo real. Directa, con sentido del humor y tolerante a preguntas controvertidas. Funciona bien con prompts conversacionales y opiniones.',
+      prefix: '',
+      suffix: '\n\nSé directo, sin rodeos. Puedes incluir opiniones fundamentadas.',
+      formatHint: 'Tono directo y conversacional. Acepta preguntas complejas.',
+      rolePrefix: 'Actúa como',
+    }
+  };
+
+  let selectedAI = null;
+
+  function selectAI(btn) {
+    document.querySelectorAll('.ai-btn').forEach(b => b.classList.remove('selected'));
+    const ai = btn.dataset.ai;
+    if (selectedAI === ai) {
+      selectedAI = null;
+      document.getElementById('ai-tip-box').classList.remove('show');
+      return;
+    }
+    btn.classList.add('selected');
+    selectedAI = ai;
+    const profile = AI_PROFILES[ai];
+    const tip = document.getElementById('ai-tip-box');
+    tip.innerHTML = `💡 ${profile.tip}`;
+    tip.classList.add('show');
+  }
+
+  // ─── GENERAR PROMPT ───
+  let currentPrompt = '';
+  const history = JSON.parse(localStorage.getItem('sim_history') || '[]');
+
+  function generatePrompt() {
+    const rawFields = {
+      ROL: document.getElementById('f-rol').value.trim(),
+      CONTEXTO: document.getElementById('f-contexto').value.trim(),
+      'INSTRUCCIÓN': document.getElementById('f-instruccion').value.trim(),
+      COMANDO: document.getElementById('f-comando').value.trim(),
+      OBJETIVO: document.getElementById('f-objetivo').value.trim(),
+      FORMATO: document.getElementById('f-formato').value.trim(),
+      RESTRICCIONES: document.getElementById('f-restricciones').value.trim()
+    };
+
+    const filled = Object.entries(rawFields).filter(([, v]) => v);
+
+    if (filled.length === 0) {
+      showToast('Rellena al menos un campo', true);
+      return;
+    }
+
+    // Apply AI-specific adaptations
+    const profile = selectedAI ? AI_PROFILES[selectedAI] : null;
+    const adaptedFields = filled.map(([key, val]) => {
+      let adaptedVal = val;
+      if (profile) {
+        if (key === 'ROL' && !val.toLowerCase().startsWith('actúa') && !val.toLowerCase().startsWith('eres')) {
+          adaptedVal = `${profile.rolePrefix} ${val}`;
+        }
+        if (key === 'FORMATO' && profile.formatHint && !val.toLowerCase().includes(profile.formatHint.substring(0,10).toLowerCase())) {
+          adaptedVal = `${val}. ${profile.formatHint}`;
+        }
+      }
+      return [key, adaptedVal];
+    });
+
+    const parts = adaptedFields.map(([key, val]) => `# ${key}: ${val}`);
+    let promptText = parts.join('\n\n');
+
+    if (profile) {
+      if (profile.prefix) promptText = profile.prefix + promptText;
+      if (profile.suffix) promptText += profile.suffix;
+    }
+
+    currentPrompt = promptText;
+
+    const box = document.getElementById('output-box');
+    box.classList.add('generating');
+
+    // Header badge if AI selected
+    const aiBadge = profile
+      ? `<div style="display:inline-block;margin-bottom:14px;padding:5px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:20px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--accent3);">✦ Optimizado para ${profile.name}</div>\n\n`
+      : '';
+
+    const html = aiBadge + adaptedFields.map(([key, val]) => {
+      const cls = {
+        ROL: 'rol', CONTEXTO: 'contexto', 'INSTRUCCIÓN': 'instruccion',
+        COMANDO: 'comando', OBJETIVO: 'objetivo', FORMATO: 'formato', RESTRICCIONES: 'restricciones'
+      }[key] || '';
+      return `<span class="token-${cls}"># ${key}:</span> ${escHtml(val)}`;
+    }).join('\n\n');
+
+    if (profile?.prefix) {
+      box.innerHTML = `<span style="color:var(--text-muted);font-style:italic;">${escHtml(profile.prefix)}</span>` + html;
+    } else {
+      box.innerHTML = html;
+    }
+
+    if (profile?.suffix) {
+      box.innerHTML += `\n\n<span style="color:var(--text-muted);font-style:italic;">${escHtml(profile.suffix.trim())}</span>`;
+    }
+
+    box.classList.add('has-content');
+    setTimeout(() => box.classList.remove('generating'), 600);
+
+    document.getElementById('char-counter').textContent = currentPrompt.length + ' chars';
+    showToast(profile ? `Prompt generado para ${profile.name} ✓` : 'Prompt generado ✓');
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ─── COPIAR ───
+  function copyPrompt() {
+    if (!currentPrompt) { showToast('Genera un prompt primero', true); return; }
+    navigator.clipboard.writeText(currentPrompt).then(() => {
+      const btn = document.getElementById('btn-copy');
+      btn.textContent = '✓ COPIADO';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = '⎘ COPIAR PROMPT';
+        btn.classList.remove('copied');
+      }, 2500);
+      showToast('Copiado al portapapeles ✓');
+    }).catch(() => {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = currentPrompt;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Copiado ✓');
+    });
+  }
+
+  // ─── GUARDAR HISTORIAL ───
+  function saveToHistory() {
+    if (!currentPrompt) { showToast('Genera un prompt primero', true); return; }
+    const item = {
+      id: Date.now(),
+      preview: currentPrompt.substring(0, 80) + '...',
+      full: currentPrompt,
+      fields: {
+        rol: document.getElementById('f-rol').value.trim(),
+        contexto: document.getElementById('f-contexto').value.trim(),
+        instruccion: document.getElementById('f-instruccion').value.trim(),
+        comando: document.getElementById('f-comando').value.trim(),
+        objetivo: document.getElementById('f-objetivo').value.trim(),
+        formato: document.getElementById('f-formato').value.trim(),
+        restricciones: document.getElementById('f-restricciones').value.trim()
+      },
+      time: new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'})
+    };
+    history.unshift(item);
+    if (history.length > 20) history.pop();
+    localStorage.setItem('sim_history', JSON.stringify(history));
+    renderHistory();
+    showToast('Guardado en historial ✓');
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    const count = document.getElementById('history-count');
+    count.textContent = history.length;
+
+    if (history.length === 0) {
+      list.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:11px;color:var(--text-muted);text-align:center;padding:16px;">Sin prompts guardados</div>';
+      return;
+    }
+
+    list.innerHTML = history.map((item, i) => `
+      <div class="history-item" onclick="loadFromHistory(${i})">
+        <div class="history-preview">${escHtml(item.preview)}</div>
+        <div class="history-time">${item.time}</div>
+      </div>
+    `).join('');
+  }
+
+  function loadFromHistory(idx) {
+    const item = history[idx];
+    if (!item) return;
+    document.getElementById('f-rol').value = item.fields.rol || '';
+    document.getElementById('f-contexto').value = item.fields.contexto || '';
+    document.getElementById('f-instruccion').value = item.fields.instruccion || '';
+    document.getElementById('f-comando').value = item.fields.comando || '';
+    document.getElementById('f-objetivo').value = item.fields.objetivo || '';
+    document.getElementById('f-formato').value = item.fields.formato || '';
+    document.getElementById('f-restricciones').value = item.fields.restricciones || '';
+    generatePrompt();
+    showToast('Prompt cargado del historial');
+  }
+
+  // ─── LIMPIAR ───
+  function clearAll() {
+    ['f-rol','f-contexto','f-instruccion','f-comando','f-objetivo','f-formato','f-restricciones'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    currentPrompt = '';
+    selectedAI = null;
+    document.querySelectorAll('.ai-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('ai-tip-box').classList.remove('show');
+    const box = document.getElementById('output-box');
+    box.innerHTML = '<div class="output-placeholder">Tu prompt aparecerá aquí listo para copiar y pegar en cualquier IA...</div>';
+    box.classList.remove('has-content');
+    document.getElementById('char-counter').textContent = '0 chars';
+  }
+
+  // ─── PLANTILLA ───
+  function loadTemplate() {
+    document.getElementById('f-rol').value = 'Actúa como un experto director financiero con vocabulario técnico preciso';
+    document.getElementById('f-contexto').value = 'Perteneces a una compañía cotizada en el IBEX con sede fiscal en España y presencia en 12 países';
+    document.getElementById('f-instruccion').value = 'Debes presentar el informe trimestral de resultados de la manera más clara y favorable posible';
+    document.getElementById('f-comando').value = 'Presenta de forma resumida las principales métricas financieras con variación respecto al trimestre anterior';
+    document.getElementById('f-objetivo').value = 'Comunicar resultados con claridad a inversores institucionales y analistas';
+    document.getElementById('f-formato').value = 'Ejecutivo, estructurado, máximo 400 palabras con tabla de KPIs al inicio';
+    document.getElementById('f-restricciones').value = 'No menciones riesgos no confirmados. Evita comparaciones con competidores por nombre';
+    showToast('Plantilla cargada ✓');
+  }
+
+  // ─── TOAST ───
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderColor = isError ? 'var(--danger)' : 'var(--success)';
+    t.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ─── INIT ───
+  renderHistory();
+
+  // Enter en login
+  window.addEventListener('keydown', e => {
+    if (document.getElementById('login-screen').style.display !== 'none' && e.key === 'Enter') {
+      checkLogin();
+    }
+    if (e.key === 'Escape') closeModal();
+  });
+</script>
+</body>
+</html>
