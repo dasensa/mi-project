@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Doc Assistant — Prompt Engine v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --ink: #1a1814;
+  --ink2: #4a4640;
+  --ink3: #8a857d;
+  --rule: #d8d2c8;
+  --paper: #faf8f4;
+  --paper2: #f0ece4;
+  --accent-r: #c0392b;
+  --accent-b: #1a4fa0;
+  --accent-g: #1a7a3a;
+  --accent-o: #c06010;
+  --stamp: #8b1a1a;
+  --glow-r: rgba(192,57,43,0.12);
+  --glow-b: rgba(26,79,160,0.12);
+  --glow-g: rgba(26,122,58,0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Paper texture via repeating pattern */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(0,0,0,0.025) 27px, rgba(0,0,0,0.025) 28px),
+    repeating-linear-gradient(90deg, transparent, transparent 27px, rgba(0,0,0,0.012) 27px, rgba(0,0,0,0.012) 28px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── LOGIN ── */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: var(--bg);
+}
+
+.login-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 52px 48px;
+  width: 400px;
+  position: relative;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.login-card::before {
+  content: 'ACCESO RESTRINGIDO';
+  position: absolute;
+  top: -13px;
+  left: 24px;
+  background: var(--accent-r);
+  color: #fff;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  padding: 3px 10px;
+}
+
+.login-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--ink3);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.login-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 36px;
+  line-height: 1;
+  margin-bottom: 36px;
+  color: var(--ink);
+}
+
+.login-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.login-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px solid var(--ink);
+  padding: 13px 16px;
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  letter-spacing: 4px;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 4px;
+}
+
+.login-input:focus { border-color: var(--accent-b); }
+
+.login-btn {
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.login-btn:hover { background: var(--accent-b); }
+
+.login-error {
+  margin-top: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-r);
+  letter-spacing: 1px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  text-align: center;
+}
+.login-error.show { opacity: 1; }
+
+/* ── APP ── */
+#app {
+  display: none;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  height: 56px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.hdr-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hdr-brand {
+  font-family: 'Instrument Serif', serif;
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.hdr-version {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--ink3);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  padding: 3px 8px;
+}
+
+.hdr-nav {
+  display: flex;
+  gap: 0;
+}
+
+.hdr-tab {
+  padding: 0 20px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  cursor: pointer;
+  border-left: 1px solid var(--rule);
+  transition: all 0.15s;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.hdr-tab:hover { color: var(--ink); background: var(--bg); }
+.hdr-tab.active { 
+  color: var(--ink); 
+  background: var(--bg); 
+  border-bottom: 3px solid var(--accent-r);
+  margin-bottom: -2px;
+}
+
+.hdr-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.hdr-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--ink3);
+  background: none;
+  border: 1px solid var(--rule);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.hdr-btn:hover { color: var(--ink); border-color: var(--ink); }
+
+/* ── MAIN ── */
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 40px 80px;
+}
+
+/* ── VIEWS ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── WIZARD VIEW ── */
+
+.wizard-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 42px;
+  line-height: 1;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.wizard-subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--ink3);
+  margin-bottom: 48px;
+}
+
+/* Step indicator */
+.step-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 40px;
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  width: fit-content;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  border-right: 1.5px solid var(--rule);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  cursor: default;
+  transition: all 0.2s;
+}
+
+.step-item:last-child { border-right: none; }
+
+.step-num {
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.step-item.active { color: var(--ink); background: var(--bg); }
+.step-item.active .step-num { border-color: var(--accent-b); color: var(--accent-b); background: rgba(26,79,160,0.08); }
+.step-item.done { color: var(--ink3); }
+.step-item.done .step-num { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* Step panels */
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+
+/* ── STEP 1: Tipo de documento ── */
+.doc-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.doc-card {
+  background: var(--paper);
+  border: 2px solid var(--rule);
+  padding: 28px 24px;
+  cursor: pointer;
+  transition: all 0.18s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.doc-card:hover {
+  border-color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+.doc-card.selected {
+  border-color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+.doc-card.selected.calc { border-color: var(--accent-g); box-shadow: 4px 4px 0 var(--accent-g); }
+.doc-card.selected.doc { border-color: var(--accent-b); box-shadow: 4px 4px 0 var(--accent-b); }
+.doc-card.selected.pres { border-color: var(--accent-o); box-shadow: 4px 4px 0 var(--accent-o); }
+
+.doc-selected-badge {
+  position: absolute;
+  top: 10px; right: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.doc-card.selected .doc-selected-badge { opacity: 1; }
+.doc-card.selected.calc .doc-selected-badge { color: var(--accent-g); }
+.doc-card.selected.doc .doc-selected-badge { color: var(--accent-b); }
+.doc-card.selected.pres .doc-selected-badge { color: var(--accent-o); }
+
+.doc-icon { font-size: 32px; line-height: 1; }
+
+.doc-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+}
+
+.doc-desc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--ink3);
+  line-height: 1.6;
+}
+
+.doc-platforms {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.plat-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  color: var(--ink3);
+  background: var(--bg);
+}
+
+/* ── STEP 2: Acción ── */
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 640px;
+  margin-bottom: 40px;
+}
+
+.action-card {
+  background: var(--paper);
+  border: 2px solid var(--rule);
+  padding: 28px 24px;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.action-card:hover {
+  border-color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+.action-card.selected {
+  border-color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: translate(-2px, -2px);
+  background: var(--bg);
+}
+
+.action-card.selected.crear { border-color: var(--accent-g); box-shadow: 4px 4px 0 var(--accent-g); }
+.action-card.selected.revisar { border-color: var(--accent-r); box-shadow: 4px 4px 0 var(--accent-r); }
+
+.action-icon { font-size: 28px; }
+.action-label { font-size: 20px; font-weight: 700; color: var(--ink); }
+.action-desc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--ink3);
+  line-height: 1.6;
+}
+
+/* File upload area (for revisar) */
+.file-upload-area {
+  display: none;
+  border: 2px dashed var(--rule);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--paper);
+  max-width: 640px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.file-upload-area:hover, .file-upload-area.drag { border-color: var(--ink); background: var(--bg); }
+.file-upload-area.has-file { border-color: var(--accent-g); border-style: solid; }
+
+.file-upload-area input[type=file] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.file-upload-icon { font-size: 28px; margin-bottom: 8px; }
+.file-upload-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--ink3);
+  letter-spacing: 1px;
+}
+.file-upload-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--accent-g);
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* ── SOURCE MODE TOGGLE ── */
+.source-mode-btn {
+  padding: 9px 18px;
+  border: none;
+  border-right: 1.5px solid var(--rule);
+  background: var(--paper);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.source-mode-btn:last-child { border-right: none; }
+.source-mode-btn:hover { background: var(--bg); color: var(--ink); }
+.source-mode-btn.active { background: var(--ink); color: var(--bg); }
+
+/* ── STEP 3: Descripción breve ── */
+.brief-area {
+  max-width: 640px;
+  margin-bottom: 40px;
+}
+
+.brief-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 10px;
+  display: block;
+}
+
+.brief-input {
+  width: 100%;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 16px 18px;
+  color: var(--ink);
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 100px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.brief-input::placeholder { color: var(--ink3); font-style: italic; font-size: 14px; }
+.brief-input:focus { border-color: var(--accent-b); }
+
+/* ── STEP nav buttons ── */
+.step-nav {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-next {
+  padding: 13px 32px;
+  background: var(--ink);
+  color: var(--bg);
+  border: 2px solid var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-next:hover { background: var(--accent-b); border-color: var(--accent-b); }
+
+.btn-back {
+  padding: 13px 24px;
+  background: transparent;
+  color: var(--ink3);
+  border: 2px solid var(--rule);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-back:hover { border-color: var(--ink); color: var(--ink); }
+
+/* ── RESULTS ── */
+.result-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 20px;
+}
+
+.result-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.result-context {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--ink3);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.result-reset {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--ink3);
+  background: none;
+  border: 1px solid var(--rule);
+  padding: 8px 16px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+}
+.result-reset:hover { border-color: var(--ink); color: var(--ink); }
+
+/* AI recommendation grid */
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.rec-card {
+  background: var(--paper);
+  border: 1.5px solid var(--rule);
+  position: relative;
+  transition: all 0.18s;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.rec-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.rec-card.rank-1::before { background: var(--accent-r); }
+.rec-card.rank-2::before { background: var(--accent-b); }
+.rec-card.rank-3::before { background: var(--accent-g); }
+.rec-card.rank-other::before { background: var(--rule); }
+
+.rec-card:hover {
+  border-color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  transform: translate(-1.5px, -1.5px);
+}
+
+.rec-card.selected-rec {
+  border-color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: translate(-2px, -2px);
+  background: var(--bg);
+}
+
+.rec-inner { padding: 20px 18px; }
+
+.rec-rank {
+  position: absolute;
+  top: 12px; right: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--ink3);
+}
+
+.rec-rank.rank-1 { color: var(--accent-r); }
+
+.rec-ai-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.rec-ai-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--ink3);
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+}
+
+.rec-why {
+  font-size: 12px;
+  color: var(--ink2);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.rec-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.rec-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  color: var(--ink3);
+  background: var(--bg);
+}
+
+.rec-select-btn {
+  width: 100%;
+  padding: 10px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 14px;
+}
+
+.rec-card.selected-rec .rec-select-btn { background: var(--accent-g); }
+.rec-select-btn:hover { background: var(--accent-b); }
+
+/* ── PROMPT OUTPUT ── */
+.prompt-section {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  margin-bottom: 32px;
+  position: relative;
+}
+
+.prompt-section::before {
+  content: 'PROMPT GENERADO';
+  position: absolute;
+  top: -12px;
+  left: 20px;
+  background: var(--paper);
+  padding: 0 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--ink3);
+}
+
+.prompt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+}
+
+.prompt-ai-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--ink3);
+}
+
+.prompt-ai-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-copy-prompt {
+  padding: 8px 20px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-copy-prompt:hover { background: var(--accent-b); }
+.btn-copy-prompt.copied { background: var(--accent-g); }
+
+.btn-save-proj {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--ink3);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-save-proj:hover { border-color: var(--ink); color: var(--ink); }
+
+.prompt-body {
+  padding: 24px 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 180px;
+}
+
+.prompt-body .tok-rol { color: #b5294a; font-weight: 600; }
+.prompt-body .tok-ctx { color: #1a4fa0; font-weight: 600; }
+.prompt-body .tok-ins { color: #1a7a3a; font-weight: 600; }
+.prompt-body .tok-cmd { color: #c06010; font-weight: 600; }
+.prompt-body .tok-obj { color: #6b21a8; font-weight: 600; }
+.prompt-body .tok-fmt { color: #0e7490; font-weight: 600; }
+.prompt-body .tok-rst { color: #7c3011; font-weight: 600; }
+.prompt-body .tok-note { color: var(--ink3); font-style: italic; }
+
+/* ── PROJECTS VIEW ── */
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.projects-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 36px;
+}
+
+.projects-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--ink3);
+  letter-spacing: 2px;
+}
+
+.project-filters {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border: 1.5px solid var(--ink);
+  width: fit-content;
+}
+
+.filter-btn {
+  padding: 8px 20px;
+  border: none;
+  border-right: 1.5px solid var(--rule);
+  background: var(--paper);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-btn:last-child { border-right: none; }
+.filter-btn:hover { background: var(--bg); color: var(--ink); }
+.filter-btn.active { background: var(--ink); color: var(--bg); }
+
+.projects-empty {
+  text-align: center;
+  padding: 80px 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--ink3);
+  letter-spacing: 1px;
+}
+
+.projects-empty-icon { font-size: 40px; margin-bottom: 16px; }
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1.5px solid var(--ink);
+}
+
+.project-row {
+  display: grid;
+  grid-template-columns: 80px 120px 1fr 120px 100px;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.12s;
+  cursor: pointer;
+}
+
+.project-row:last-child { border-bottom: none; }
+.project-row:hover { background: var(--bg); }
+
+.project-row-header {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  background: var(--paper2);
+  cursor: default;
+}
+.project-row-header:hover { background: var(--paper2); }
+
+.proj-type-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  text-align: center;
+  width: fit-content;
+}
+
+.proj-type-badge.calc { border-color: var(--accent-g); color: var(--accent-g); }
+.proj-type-badge.doc { border-color: var(--accent-b); color: var(--accent-b); }
+.proj-type-badge.pres { border-color: var(--accent-o); color: var(--accent-o); }
+
+.proj-action-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  text-align: center;
+  width: fit-content;
+}
+
+.proj-action-badge.crear { border-color: var(--accent-g); color: var(--accent-g); background: rgba(26,122,58,0.06); }
+.proj-action-badge.revisar { border-color: var(--accent-r); color: var(--accent-r); background: rgba(192,57,43,0.06); }
+
+.proj-desc {
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proj-ai {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--ink3);
+}
+
+.proj-date {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--ink3);
+  text-align: right;
+}
+
+.proj-del-btn {
+  background: none;
+  border: none;
+  color: var(--rule);
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.15s;
+  padding: 4px;
+}
+.proj-del-btn:hover { color: var(--accent-r); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26,24,20,0.6);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+
+.modal {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--ink);
+  padding: 36px;
+  width: 480px;
+  max-width: 90vw;
+  position: relative;
+}
+
+.modal h3 {
+  font-family: 'Instrument Serif', serif;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.modal p {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--ink3);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.modal input {
+  width: 100%;
+  background: var(--bg);
+  border: 2px solid var(--ink);
+  padding: 12px 14px;
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  letter-spacing: 2px;
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: var(--ink);
+  color: var(--bg);
+  border-left: 4px solid var(--accent-g);
+  padding: 12px 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  z-index: 300;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.25s;
+  pointer-events: none;
+}
+
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { border-left-color: var(--accent-r); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up { animation: fadeUp 0.35s ease forwards; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .main-content { padding: 24px 20px; }
+  .doc-type-grid, .rec-grid { grid-template-columns: 1fr; }
+  .action-grid { grid-template-columns: 1fr; }
+  header { padding: 0 20px; }
+  .hdr-nav { display: none; }
+  .project-row { grid-template-columns: 80px 1fr 80px; }
+  .proj-ai, .proj-date { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-eyebrow">Prompt Engine · AI Doc</div>
+    <div class="login-title">Acceso<br>privado</div>
+    <label class="login-label" for="pwd">Contraseña</label>
+    <input type="password" id="pwd" class="login-input" placeholder="••••••••" autocomplete="current-password">
+    <button class="login-btn" onclick="checkLogin()">Entrar →</button>
+    <div class="login-error" id="login-error">Contraseña incorrecta. Inténtalo de nuevo.</div>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="app">
+  <header>
+    <div class="hdr-left">
+      <div class="hdr-brand">AI Doc Assistant</div>
+      <div class="hdr-version">v2.0</div>
+    </div>
+    <nav class="hdr-nav">
+      <button class="hdr-tab active" onclick="switchView('wizard', this)">Nuevo Prompt</button>
+      <button class="hdr-tab" onclick="switchView('projects', this)">Proyectos</button>
+    </nav>
+    <div class="hdr-right">
+      <button class="hdr-btn" onclick="showChangePassword()">🔐</button>
+      <button class="hdr-btn" onclick="logout()">Salir</button>
+    </div>
+  </header>
+
+  <div class="main-content">
+
+    <!-- ── WIZARD VIEW ── -->
+    <div class="view active" id="view-wizard">
+      <div class="wizard-title">¿Qué necesitas hacer?</div>
+      <div class="wizard-subtitle">// SELECCIONA TIPO · ACCIÓN · CONTEXTO → PROMPT ÓPTIMO</div>
+
+      <!-- Step tracker -->
+      <div class="step-track">
+        <div class="step-item active" id="step-ind-1">
+          <div class="step-num">1</div>TIPO DE ARCHIVO
+        </div>
+        <div class="step-item" id="step-ind-2">
+          <div class="step-num">2</div>ACCIÓN
+        </div>
+        <div class="step-item" id="step-ind-3">
+          <div class="step-num">3</div>CONTEXTO
+        </div>
+        <div class="step-item" id="step-ind-4">
+          <div class="step-num">4</div>RESULTADO
+        </div>
+      </div>
+
+      <!-- STEP 1 -->
+      <div class="step-panel active" id="step-1">
+        <div class="doc-type-grid">
+          <div class="doc-card calc" onclick="selectDocType('calc', this)">
+            <div class="doc-selected-badge">✓ SELECCIONADO</div>
+            <div class="doc-icon">📊</div>
+            <div class="doc-label">Hoja de cálculo</div>
+            <div class="doc-desc">Datos, fórmulas, tablas, análisis numérico, dashboards.</div>
+            <div class="doc-platforms">
+              <span class="plat-tag">Excel</span>
+              <span class="plat-tag">Google Sheets</span>
+            </div>
+          </div>
+          <div class="doc-card doc" onclick="selectDocType('doc', this)">
+            <div class="doc-selected-badge">✓ SELECCIONADO</div>
+            <div class="doc-icon">📝</div>
+            <div class="doc-label">Documento</div>
+            <div class="doc-desc">Redacción, informes, propuestas, contratos, artículos.</div>
+            <div class="doc-platforms">
+              <span class="plat-tag">Word</span>
+              <span class="plat-tag">Google Docs</span>
+              <span class="plat-tag">OneDrive</span>
+            </div>
+          </div>
+          <div class="doc-card pres" onclick="selectDocType('pres', this)">
+            <div class="doc-selected-badge">✓ SELECCIONADO</div>
+            <div class="doc-icon">📽️</div>
+            <div class="doc-label">Presentación</div>
+            <div class="doc-desc">Slides, pitch decks, storytelling visual, diapositivas.</div>
+            <div class="doc-platforms">
+              <span class="plat-tag">PowerPoint</span>
+              <span class="plat-tag">Google Slides</span>
+            </div>
+          </div>
+        </div>
+        <div class="step-nav">
+          <button class="btn-next" onclick="goStep(2)">Siguiente →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="step-panel" id="step-2">
+        <div class="action-grid">
+          <div class="action-card crear" onclick="selectAction('crear', this)">
+            <div class="action-icon">✨</div>
+            <div class="action-label">Crear</div>
+            <div class="action-desc">Generar el archivo desde cero. La IA construye la estructura, el contenido y el formato.</div>
+          </div>
+          <div class="action-card revisar" onclick="selectAction('revisar', this)">
+            <div class="action-icon">🔍</div>
+            <div class="action-label">Revisar</div>
+            <div class="action-desc">Analizar un archivo existente: corregir, mejorar, detectar errores, reformatear. Devuelve el mismo formato.</div>
+          </div>
+        </div>
+
+        <!-- Archivo fuente (only for revisar) -->
+        <div id="file-source-wrap" style="display:none; max-width:640px; margin-bottom:24px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;">Archivo a revisar — elige cómo facilitarlo</div>
+
+          <!-- Mode toggle -->
+          <div style="display:flex;gap:0;border:1.5px solid var(--ink);width:fit-content;margin-bottom:16px;">
+            <button id="mode-btn-file" class="source-mode-btn active" onclick="setFileMode('file')">📎 Adjuntar archivo</button>
+            <button id="mode-btn-link" class="source-mode-btn" onclick="setFileMode('link')">🔗 Enlace (Drive / SharePoint)</button>
+          </div>
+
+          <!-- Upload panel -->
+          <div id="panel-file">
+            <div class="file-upload-area" id="file-upload" onclick="document.getElementById('file-input').click()">
+              <input type="file" id="file-input" onchange="handleFileSelect(event)" accept=".xlsx,.xls,.csv,.docx,.doc,.pptx,.ppt,.pdf,.txt">
+              <div class="file-upload-icon">📎</div>
+              <div class="file-upload-label">ADJUNTAR ARCHIVO A REVISAR<br><span style="opacity:.6;font-size:9px;">Arrastra aquí o haz clic · Excel, Word, PPT, PDF, CSV</span></div>
+              <div class="file-upload-name" id="file-name"></div>
+            </div>
+          </div>
+
+          <!-- Link panel -->
+          <div id="panel-link" style="display:none;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink3);margin-bottom:8px;letter-spacing:1px;">Pega el enlace al archivo compartido</div>
+            <input type="url" id="file-link-input" class="brief-input" style="min-height:auto;padding:13px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;resize:none;" placeholder="https://docs.google.com/... o https://onedrive.live.com/... o https://sharepoint.com/...">
+            <div style="margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ink3);line-height:1.7;">
+              ⚠ Asegúrate de que el enlace tiene <strong>permisos de lectura</strong> para la IA que uses.<br>
+              Google Drive → Compartir → «Cualquiera con el enlace».<br>
+              SharePoint / OneDrive → Compartir → «Cualquiera con este enlace».
+            </div>
+          </div>
+        </div>
+
+        <div class="step-nav">
+          <button class="btn-back" onclick="goStep(1)">← Atrás</button>
+          <button class="btn-next" onclick="goStep(3)">Siguiente →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="step-panel" id="step-3">
+        <div class="brief-area">
+          <label class="brief-label" for="brief-input">¿Qué necesitas exactamente?</label>
+          <textarea id="brief-input" class="brief-input" placeholder="Describe brevemente qué quieres conseguir. Ej: «Crear un informe de ventas mensual por zona con comparativa interanual» o «Revisar esta propuesta comercial, mejorar la redacción y detectar incoherencias de precio»..." rows="4"></textarea>
+        </div>
+        <div class="step-nav">
+          <button class="btn-back" onclick="goStep(2)">← Atrás</button>
+          <button class="btn-next" onclick="generateResults()">⚡ Generar recomendaciones</button>
+        </div>
+      </div>
+
+      <!-- STEP 4 — Results -->
+      <div class="step-panel" id="step-4">
+        <div class="result-header">
+          <div>
+            <div class="result-title">IAs recomendadas</div>
+            <div class="result-context" id="result-context-label"></div>
+          </div>
+          <button class="result-reset" onclick="resetWizard()">↩ Nueva consulta</button>
+        </div>
+
+        <div class="rec-grid" id="rec-grid"></div>
+
+        <div class="prompt-section" id="prompt-section" style="display:none;">
+          <div class="prompt-toolbar">
+            <div>
+              <div class="prompt-ai-label">PROMPT OPTIMIZADO PARA</div>
+              <div class="prompt-ai-name" id="prompt-ai-name">—</div>
+            </div>
+            <div class="prompt-actions">
+              <button class="btn-copy-prompt" id="btn-copy-prompt" onclick="copyPrompt()">⎘ Copiar</button>
+              <button class="btn-save-proj" onclick="saveProject()">↓ Guardar proyecto</button>
+            </div>
+          </div>
+          <div class="prompt-body" id="prompt-body"></div>
+        </div>
+      </div>
+    </div><!-- end wizard -->
+
+    <!-- ── PROJECTS VIEW ── -->
+    <div class="view" id="view-projects">
+      <div class="projects-header">
+        <div>
+          <div class="projects-title">Proyectos</div>
+          <div class="projects-count" id="proj-count">0 guardados</div>
+        </div>
+      </div>
+
+      <div class="project-filters">
+        <button class="filter-btn active" onclick="filterProjects('all', this)">Todos</button>
+        <button class="filter-btn" onclick="filterProjects('calc', this)">📊 Cálculo</button>
+        <button class="filter-btn" onclick="filterProjects('doc', this)">📝 Docs</button>
+        <button class="filter-btn" onclick="filterProjects('pres', this)">📽️ Presentaciones</button>
+        <button class="filter-btn" onclick="filterProjects('crear', this)">Crear</button>
+        <button class="filter-btn" onclick="filterProjects('revisar', this)">Revisar</button>
+      </div>
+
+      <div id="proj-list-wrap"></div>
+    </div>
+
+  </div><!-- end main-content -->
+</div><!-- end app -->
+
+<!-- Modal contraseña -->
+<div class="modal-overlay" id="pwd-modal">
+  <div class="modal">
+    <h3>Cambiar contraseña</h3>
+    <p>La nueva contraseña se guardará localmente en este navegador.</p>
+    <input type="password" id="new-pwd-1" placeholder="Nueva contraseña">
+    <input type="password" id="new-pwd-2" placeholder="Confirmar contraseña">
+    <div class="modal-actions">
+      <button class="hdr-btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn-next" style="padding:10px 24px;font-size:10px;" onclick="saveNewPassword()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════
+const DEFAULT_PWD = 'aidoc2025';
+
+function getPassword() { return localStorage.getItem('aidoc_pwd') || DEFAULT_PWD; }
+
+function checkLogin() {
+  const input = document.getElementById('pwd').value;
+  if (input === getPassword()) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderProjects();
+  } else {
+    const err = document.getElementById('login-error');
+    err.classList.add('show');
+    setTimeout(() => err.classList.remove('show'), 3000);
+    document.getElementById('pwd').value = '';
+    document.getElementById('pwd').focus();
+  }
+}
+
+document.getElementById('pwd').addEventListener('keydown', e => { if (e.key === 'Enter') checkLogin(); });
+
+function logout() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pwd').value = '';
+}
+
+function showChangePassword() { document.getElementById('pwd-modal').classList.add('show'); }
+function closeModal() { document.getElementById('pwd-modal').classList.remove('show'); }
+
+function saveNewPassword() {
+  const p1 = document.getElementById('new-pwd-1').value;
+  const p2 = document.getElementById('new-pwd-2').value;
+  if (!p1) { toast('Escribe una contraseña', true); return; }
+  if (p1 !== p2) { toast('Las contraseñas no coinciden', true); return; }
+  localStorage.setItem('aidoc_pwd', p1);
+  closeModal();
+  toast('Contraseña actualizada ✓');
+}
+
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ═══════════════════════════════════════
+// VIEW SWITCH
+// ═══════════════════════════════════════
+function switchView(view, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.hdr-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (view === 'projects') renderProjects();
+}
+
+// ═══════════════════════════════════════
+// WIZARD STATE
+// ═══════════════════════════════════════
+let state = { docType: null, action: null, fileName: null, fileLink: null, fileMode: 'file', brief: '', selectedAI: null };
+let currentPromptText = '';
+
+function resetWizard() {
+  state = { docType: null, action: null, fileName: null, fileLink: null, fileMode: 'file', brief: '', selectedAI: null };
+  currentPromptText = '';
+  document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.action-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('brief-input').value = '';
+  document.getElementById('file-name').textContent = '';
+  document.getElementById('file-link-input').value = '';
+  document.getElementById('file-upload').classList.remove('has-file');
+  document.getElementById('file-source-wrap').style.display = 'none';
+  setFileMode('file');
+  goStepDirect(1);
+}
+
+function goStep(n) {
+  // Validate
+  if (n === 2 && !state.docType) { toast('Selecciona un tipo de archivo', true); return; }
+  if (n === 3 && !state.action) { toast('Selecciona una acción', true); return; }
+  if (n === 3 && state.action === 'revisar') {
+    if (state.fileMode === 'link') {
+      const link = document.getElementById('file-link-input').value.trim();
+      if (!link) { toast('Pega el enlace al archivo antes de continuar', true); return; }
+      if (!link.startsWith('http')) { toast('El enlace no parece válido', true); return; }
+      state.fileLink = link;
+      state.fileName = null;
+    }
+    // file mode: no mandatory check — user may not be able to attach yet
+  }
+  if (n === 4) {
+    const brief = document.getElementById('brief-input').value.trim();
+    if (!brief) { toast('Describe brevemente qué necesitas', true); return; }
+    state.brief = brief;
+    generateResults();
+    return;
+  }
+  goStepDirect(n);
+}
+
+function goStepDirect(n) {
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+
+  // Update step indicators
+  for (let i = 1; i <= 4; i++) {
+    const ind = document.getElementById('step-ind-' + i);
+    ind.classList.remove('active', 'done');
+    if (i < n) ind.classList.add('done');
+    else if (i === n) ind.classList.add('active');
+  }
+  // Mark step nums for done
+  document.querySelectorAll('[id^=step-ind-]').forEach((el, idx) => {
+    const num = el.querySelector('.step-num');
+    if (el.classList.contains('done')) num.textContent = '✓';
+    else num.textContent = idx + 1;
+  });
+}
+
+function selectDocType(type, el) {
+  document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.docType = type;
+}
+
+function selectAction(action, el) {
+  document.querySelectorAll('.action-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.action = action;
+  document.getElementById('file-source-wrap').style.display = action === 'revisar' ? 'block' : 'none';
+}
+
+function setFileMode(mode) {
+  state.fileMode = mode;
+  document.getElementById('panel-file').style.display = mode === 'file' ? 'block' : 'none';
+  document.getElementById('panel-link').style.display = mode === 'link' ? 'block' : 'none';
+  document.getElementById('mode-btn-file').classList.toggle('active', mode === 'file');
+  document.getElementById('mode-btn-link').classList.toggle('active', mode === 'link');
+  // Clear the other mode's data
+  if (mode === 'file') {
+    state.fileLink = null;
+    document.getElementById('file-link-input').value = '';
+  } else {
+    state.fileName = null;
+    document.getElementById('file-name').textContent = '';
+    document.getElementById('file-upload').classList.remove('has-file');
+  }
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  state.fileName = file.name;
+  document.getElementById('file-name').textContent = '📎 ' + file.name;
+  document.getElementById('file-upload').classList.add('has-file');
+  toast('Archivo adjunto: ' + file.name);
+}
+
+// Drag and drop for file upload
+const uploadArea = document.getElementById('file-upload');
+if (uploadArea) {
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag'));
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      state.fileName = file.name;
+      document.getElementById('file-name').textContent = '📎 ' + file.name;
+      uploadArea.classList.add('has-file');
+      toast('Archivo adjunto: ' + file.name);
+    }
+  });
+}
+
+// ═══════════════════════════════════════
+// AI DATABASE
+// ═══════════════════════════════════════
+const AI_DB = {
+  chatgpt: {
+    name: 'ChatGPT', sub: 'GPT-4o · OpenAI',
+    url: 'https://chat.openai.com',
+    strengths: { calc: 9, doc: 9, pres: 8, crear: 9, revisar: 8 },
+    tags: { calc: ['Fórmulas','VBA','Python','Análisis'], doc: ['Redacción','Markdown','Estructurado'], pres: ['Guión','Estructura','Narrativa'] },
+    why: {
+      calc_crear: 'GPT-4o genera fórmulas complejas, estructuras de tablas y código Python/VBA con precisión. Ideal para crear desde cero con lógica de datos.',
+      calc_revisar: 'Detecta errores de fórmula, propone optimizaciones y explica cada cambio. Devuelve instrucciones precisas para replicar en Excel/Sheets.',
+      doc_crear: 'Redacción fluida, estructurada y adaptable a cualquier registro. Excelente para documentos largos con secciones complejas.',
+      doc_revisar: 'Revisión exhaustiva: coherencia, gramática, tono y estructura. Devuelve el documento corregido en el mismo formato.',
+      pres_crear: 'Define estructura narrativa, mensajes por slide y textos concisos. Óptimo para pitch decks y presentaciones ejecutivas.',
+      pres_revisar: 'Analiza flujo narrativo, detecta redundancias y mejora textos de cada diapositiva. Mantiene el formato original.',
+    }
+  },
+  copilot: {
+    name: 'Microsoft Copilot', sub: 'Copilot 365 · Microsoft',
+    url: 'https://copilot.microsoft.com',
+    strengths: { calc: 10, doc: 10, pres: 10, crear: 9, revisar: 10 },
+    tags: { calc: ['Excel nativo','Office 365','Integrado'], doc: ['Word nativo','Formato','Revisión'], pres: ['PowerPoint','Diseño','Slides'] },
+    why: {
+      calc_crear: 'Integrado en Excel. Genera hojas, fórmulas y tablas dinámicas directamente en el archivo. La opción más rápida para el ecosistema Microsoft.',
+      calc_revisar: 'Accede directamente al archivo Excel abierto. Detecta errores, sugiere correcciones y aplica cambios en tiempo real.',
+      doc_crear: 'Integrado en Word. Redacta, formatea y estructura documentos sin salir de la aplicación. Contexto completo del archivo.',
+      doc_revisar: 'La revisión más profunda para Word: gramática, estilo, coherencia y formato. Aplica cambios directamente sobre el documento.',
+      pres_crear: 'Integrado en PowerPoint. Genera slides completos con diseño, layout y contenido. La opción más directa para el ecosistema Microsoft.',
+      pres_revisar: 'Revisa cada diapositiva: claridad del mensaje, flujo visual y consistencia de estilo. Aplica correcciones en el archivo.',
+    }
+  },
+  gemini: {
+    name: 'Google Gemini', sub: 'Gemini 2.0 · Google',
+    url: 'https://gemini.google.com',
+    strengths: { calc: 9, doc: 9, pres: 8, crear: 8, revisar: 8 },
+    tags: { calc: ['Google Sheets','Drive','Fórmulas'], doc: ['Google Docs','Multimodal'], pres: ['Google Slides','Visual'] },
+    why: {
+      calc_crear: 'Integrado en Google Workspace. Genera fórmulas y estructuras directamente en Google Sheets con contexto del Drive.',
+      calc_revisar: 'Accede a Google Sheets y Drive. Detecta errores y propone mejoras con conocimiento del ecosistema Google.',
+      doc_crear: 'Nativo en Google Docs. Redacta con acceso a tu Drive y contexto largo (hasta 1M tokens). Ideal para documentos complejos.',
+      doc_revisar: 'Revisión con acceso directo al documento en Google Docs. Analiza coherencia, estilo y estructura de forma integral.',
+      pres_crear: 'Genera contenido para Google Slides con acceso al ecosistema Google. Bueno para presentaciones con mucho contenido de búsqueda.',
+      pres_revisar: 'Analiza slides en Google Slides. Detecta problemas de narrativa y coherencia visual con acceso nativo.',
+    }
+  },
+  claude: {
+    name: 'Claude AI', sub: 'Sonnet 4.6 · Anthropic',
+    url: 'https://claude.ai',
+    strengths: { calc: 8, doc: 10, pres: 9, crear: 9, revisar: 10 },
+    tags: { calc: ['Análisis','Lógica','Datos'], doc: ['Redacción crítica','Matiz','Revisión profunda'], pres: ['Narrativa','Estructura','Argumentación'] },
+    why: {
+      calc_crear: 'Análisis estructurado y fórmulas con razonamiento explícito. Ideal cuando la lógica detrás del dato importa tanto como el dato.',
+      calc_revisar: 'Revisión crítica y razonada. Detecta no solo errores sino inconsistencias de fondo. Explica por qué y propone alternativas.',
+      doc_crear: 'Redacción de mayor calidad con matiz, estructura y coherencia argumental. El mejor para documentos que requieren pensamiento crítico.',
+      doc_revisar: 'La revisión más profunda del mercado: detecta problemas de fondo, incoherencias y debilidades argumentales, no solo errores de forma.',
+      pres_crear: 'Construye narrativas de presentación con estructura argumental sólida. Pensamiento crítico aplicado a la comunicación visual.',
+      pres_revisar: 'Analiza si la presentación convence, detecta saltos lógicos y propone mejoras sustanciales más allá del texto.',
+    }
+  },
+  perplexity: {
+    name: 'Perplexity AI', sub: 'Pro · Búsqueda + IA',
+    url: 'https://perplexity.ai',
+    strengths: { calc: 6, doc: 8, pres: 7, crear: 7, revisar: 6 },
+    tags: { calc: ['Datos externos','Referencias'], doc: ['Investigación','Fuentes','Actualidad'], pres: ['Datos actuales','Benchmark'] },
+    why: {
+      calc_crear: 'Útil cuando los datos requieren información de mercado actualizada. Integra fuentes externas en el contexto del archivo.',
+      calc_revisar: 'Valida datos contra fuentes externas y verifica benchmarks de mercado. Complementario a otras IAs para la revisión.',
+      doc_crear: 'Ideal para documentos que requieren investigación: informes de mercado, análisis sectoriales, artículos con referencias.',
+      doc_revisar: 'Verifica datos y afirmaciones contra fuentes actualizadas. Especialmente útil para documentos con datos de mercado.',
+      pres_crear: 'Aporta datos y estadísticas actualizadas para enriquecer la presentación con credibilidad basada en fuentes.',
+      pres_revisar: 'Valida los datos citados en las slides contra fuentes actuales. Refuerza la credibilidad de la presentación.',
+    }
+  },
+  deepseek: {
+    name: 'DeepSeek', sub: 'R1/V3 · Razonamiento',
+    url: 'https://chat.deepseek.com',
+    strengths: { calc: 9, doc: 7, pres: 6, crear: 8, revisar: 7 },
+    tags: { calc: ['Razonamiento','Código','Python','Lógica'], doc: ['Análisis técnico','Estructurado'], pres: ['Técnico'] },
+    why: {
+      calc_crear: 'Razonamiento profundo para fórmulas complejas, código Python/VBA y modelos de datos. Muestra su cadena de pensamiento.',
+      calc_revisar: 'Detecta errores lógicos con razonamiento explícito. Ideal para hojas de cálculo con modelos financieros o técnicos complejos.',
+      doc_crear: 'Fuerte en documentos técnicos y analíticos. Menos indicado para redacción creativa o de alto matiz.',
+      doc_revisar: 'Analiza la consistencia lógica y técnica del documento. Bueno para informes técnicos, menos para textos literarios.',
+      pres_crear: 'Útil para presentaciones de contenido técnico. Genera estructura lógica y argumentación sólida.',
+      pres_revisar: 'Revisa la coherencia técnica de la presentación. Detecta inconsistencias en datos y argumentación.',
+    }
+  },
+  qwen: {
+    name: 'Qwen AI Chat', sub: 'QwQ · Alibaba',
+    url: 'https://chat.qwenlm.ai',
+    strengths: { calc: 7, doc: 7, pres: 6, crear: 7, revisar: 6 },
+    tags: { calc: ['Multilingüe','Internacional'], doc: ['Negocio','Internacional'], pres: ['Diverso'] },
+    why: {
+      calc_crear: 'Opción sólida para análisis de datos en contextos internacionales o multilingüe. Instrucciones estructuradas funcionan bien.',
+      calc_revisar: 'Revisión funcional. Adecuado si el archivo tiene contexto internacional o asiático.',
+      doc_crear: 'Buena opción para redacción en contextos de negocio internacional. Multilingüe y preciso con instrucciones claras.',
+      doc_revisar: 'Revisión competente. Especialmente relevante para documentos con audiencia internacional.',
+      pres_crear: 'Genera contenido de presentación adecuado para contextos de negocio internacionales.',
+      pres_revisar: 'Revisión funcional de presentaciones con enfoque de negocio.',
+    }
+  },
+  kimi: {
+    name: 'Kimi Plus', sub: 'Moonshot · 1M tokens',
+    url: 'https://kimi.moonshot.cn',
+    strengths: { calc: 7, doc: 9, pres: 7, crear: 7, revisar: 9 },
+    tags: { calc: ['Contexto largo','Análisis extenso'], doc: ['Documentos largos','Revisión completa'], pres: ['Decks extensos'] },
+    why: {
+      calc_crear: 'Ventana de 1M tokens: puede procesar hojas de cálculo enormes. Útil cuando el contexto de datos es muy extenso.',
+      calc_revisar: 'La mejor opción para revisar archivos de Excel muy extensos o con mucha historia de datos.',
+      doc_crear: 'Genera documentos muy largos manteniendo coherencia. Ideal para informes extensos o documentación técnica detallada.',
+      doc_revisar: 'Puede revisar documentos enteros de cualquier longitud. La mejor opción para contratos, manuales o informes extensos.',
+      pres_crear: 'Útil para presentaciones con mucho contenido textual o que derivan de documentos extensos.',
+      pres_revisar: 'Revisa presentaciones largas en su totalidad. Detecta inconsistencias entre slides con contexto completo.',
+    }
+  },
+  grok: {
+    name: 'Grok AI', sub: 'Grok 3 · xAI',
+    url: 'https://grok.com',
+    strengths: { calc: 7, doc: 7, pres: 7, crear: 7, revisar: 6 },
+    tags: { calc: ['Tiempo real','X/Twitter','Actualidad'], doc: ['Directo','Opinado'], pres: ['Impactante','Directo'] },
+    why: {
+      calc_crear: 'Acceso a datos en tiempo real desde X. Útil para hojas con datos de mercado, trends o análisis de sentimiento social.',
+      calc_revisar: 'Revisión directa y sin rodeos. Señala errores con claridad y propone alternativas de forma concisa.',
+      doc_crear: 'Redacción directa, opinada y con carácter. Funciona bien para documentos que buscan impacto y no diplomacia excesiva.',
+      doc_revisar: 'Revisión honesta y directa. Señala problemas sin filtros. Ideal cuando quieres feedback sin suavizar.',
+      pres_crear: 'Genera presentaciones con punch. Textos directos, impactantes y sin relleno.',
+      pres_revisar: 'Detecta slides débiles con contundencia. Propone mejoras directas orientadas al impacto.',
+    }
+  }
+};
+
+// ═══════════════════════════════════════
+// RANKING LOGIC
+// ═══════════════════════════════════════
+function getRanking(docType, action) {
+  const key = docType;
+  const actKey = action;
+  return Object.entries(AI_DB)
+    .map(([id, ai]) => ({
+      id,
+      ...ai,
+      score: (ai.strengths[key] || 0) + (ai.strengths[actKey] || 0)
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+// ═══════════════════════════════════════
+// GENERATE RESULTS
+// ═══════════════════════════════════════
+function generateResults() {
+  goStepDirect(4);
+
+  const docLabels = { calc: '📊 Hoja de cálculo', doc: '📝 Documento', pres: '📽️ Presentación' };
+  const actLabels = { crear: '✨ Crear', revisar: '🔍 Revisar' };
+
+  const fileRef = state.fileLink
+    ? ` · 🔗 ${state.fileLink.length > 50 ? state.fileLink.substring(0,50) + '…' : state.fileLink}`
+    : state.fileName ? ` · ${state.fileName}` : '';
+  document.getElementById('result-context-label').textContent =
+    `${docLabels[state.docType]} · ${actLabels[state.action]}` + fileRef;
+
+  const ranking = getRanking(state.docType, state.action);
+  const top3 = ranking.slice(0, 3);
+  const rest = ranking.slice(3, 6);
+
+  const grid = document.getElementById('rec-grid');
+  grid.innerHTML = '';
+
+  [...top3, ...rest].forEach((ai, idx) => {
+    const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-other';
+    const rankLabel = idx === 0 ? '★ PRIMERA OPCIÓN' : idx === 1 ? '2ª opción' : idx === 2 ? '3ª opción' : '';
+    const whyKey = `${state.docType}_${state.action}`;
+    const tags = (ai.tags[state.docType] || []).join(' · ');
+    const why = ai.why[whyKey] || '';
+
+    const card = document.createElement('div');
+    card.className = `rec-card ${rankClass} fade-up`;
+    card.style.animationDelay = (idx * 60) + 'ms';
+    card.dataset.aiId = ai.id;
+    card.innerHTML = `
+      <div class="rec-inner">
+        <div class="rec-rank ${rankClass}">${rankLabel}</div>
+        <div class="rec-ai-name">${ai.name}</div>
+        <div class="rec-ai-sub">${ai.sub}</div>
+        <div class="rec-why">${why}</div>
+        <div class="rec-tags">${(ai.tags[state.docType] || []).map(t => `<span class="rec-tag">${t}</span>`).join('')}</div>
+        <button class="rec-select-btn" onclick="selectAIForPrompt('${ai.id}', this.closest('.rec-card'))">Ver prompt →</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // Auto-select best
+  selectAIForPrompt(top3[0].id, grid.querySelector('.rec-card'));
+}
+
+// ═══════════════════════════════════════
+// GENERATE PROMPT
+// ═══════════════════════════════════════
+function selectAIForPrompt(aiId, cardEl) {
+  document.querySelectorAll('.rec-card').forEach(c => c.classList.remove('selected-rec'));
+  if (cardEl) cardEl.classList.add('selected-rec');
+  state.selectedAI = aiId;
+
+  const prompt = buildPrompt(aiId);
+  currentPromptText = prompt.plain;
+
+  document.getElementById('prompt-ai-name').textContent = AI_DB[aiId].name + ' — ' + AI_DB[aiId].sub;
+  document.getElementById('prompt-body').innerHTML = prompt.html;
+  document.getElementById('prompt-section').style.display = 'block';
+
+  document.getElementById('prompt-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function buildPrompt(aiId) {
+  const ai = AI_DB[aiId];
+  const docNames = { calc: 'hoja de cálculo', doc: 'documento', pres: 'presentación' };
+  const docName = docNames[state.docType];
+  const brief = state.brief;
+  const isRevisar = state.action === 'revisar';
+  let fileRef;
+  if (state.fileLink) {
+    fileRef = ` El archivo está disponible en el siguiente enlace (asegúrate de tener acceso): ${state.fileLink}`;
+  } else if (state.fileName) {
+    fileRef = ` El archivo a revisar es: "${state.fileName}".`;
+  } else {
+    fileRef = ' Adjunto el archivo a revisar.';
+  }
+
+  // Build structured prompt adapted per AI
+  let roleText, ctxText, insText, cmdText, objText, fmtText, rstText;
+
+  if (state.docType === 'calc') {
+    roleText = `experto en análisis de datos y hojas de cálculo (Excel y Google Sheets), con dominio de fórmulas avanzadas, tablas dinámicas y automatización`;
+    if (isRevisar) {
+      ctxText = `Voy a ${isRevisar ? 'facilitarte' : 'pedirte que crees'} una ${docName} para revisar.${fileRef}`;
+      insText = `Debes revisar exhaustivamente la ${docName} adjunta: detectar errores en fórmulas, incoherencias en datos, problemas de estructura y oportunidades de mejora. Al finalizar, devuelve el archivo corregido en el mismo formato original (Excel o CSV según corresponda).`;
+      cmdText = `Analiza celda por celda las fórmulas críticas. Identifica y corrige errores. Lista cada problema encontrado con su ubicación (hoja/columna/fila) y la solución aplicada.`;
+      objText = `Obtener una ${docName} corregida, optimizada y libre de errores, en el mismo formato que el original.`;
+      fmtText = `Informe de revisión en formato estructurado: lista numerada de problemas encontrados → corrección aplicada → versión final del archivo en el mismo formato`;
+      rstText = `No cambies la estructura ni el diseño del archivo original. No añadas hojas ni columnas no solicitadas. Mantén el mismo formato de salida.`;
+    } else {
+      ctxText = `Necesito crear una ${docName} nueva desde cero con el siguiente propósito: ${brief}`;
+      insText = `Debes crear una ${docName} completa, funcional y lista para usar, con la estructura, fórmulas y formato adecuados al propósito indicado.`;
+      cmdText = `Diseña la estructura completa de la ${docName}. Define las columnas, tipos de datos, fórmulas necesarias y formato. Si aplica, incluye fórmulas en sintaxis Excel (=SUMAR, =BUSCARV, etc.) o Google Sheets.`;
+      objText = `Obtener una ${docName} lista para implementar que resuelva exactamente: ${brief}`;
+      fmtText = `Estructura detallada: nombre de columnas con tipos de dato → fórmulas clave → instrucciones de implementación. Proporciona también el código/fórmulas listas para copiar.`;
+      rstText = `Las fórmulas deben ser compatibles con Excel y Google Sheets cuando sea posible. Si no, especifica claramente para cuál plataforma.`;
+    }
+  } else if (state.docType === 'doc') {
+    roleText = `experto redactor y consultor de comunicación empresarial, con dominio de estructuras documentales, argumentación y adecuación al registro profesional`;
+    if (isRevisar) {
+      ctxText = `Voy a facilitarte un ${docName} para que lo revises en profundidad.${fileRef}`;
+      insText = `Debes revisar el ${docName} adjunto de forma exhaustiva: coherencia argumental, gramática, ortografía, estilo, estructura y adecuación al objetivo del documento. Al finalizar, devuelve el ${docName} corregido en el mismo formato original.`;
+      cmdText = `Lee el documento completo. Identifica y corrige todos los errores. Detecta incoherencias de fondo, saltos lógicos y debilidades argumentales. Mejora la redacción manteniendo la voz y el tono originales.`;
+      objText = `Obtener el mismo ${docName} en su mejor versión posible: correcto, coherente, persuasivo y bien estructurado, en el mismo formato que el original.`;
+      fmtText = `Devuelve: (1) Resumen ejecutivo de problemas encontrados (clasificados por gravedad), (2) Documento corregido completo en el mismo formato original.`;
+      rstText = `No cambies el formato ni la estructura general del documento. No añadas secciones no solicitadas. Mantén el estilo y la voz del autor siempre que sea posible.`;
+    } else {
+      ctxText = `Necesito crear un ${docName} nuevo con el siguiente propósito: ${brief}`;
+      insText = `Debes redactar un ${docName} completo, bien estructurado y adecuado al propósito indicado. Cuida la coherencia argumental, el estilo y la presentación.`;
+      cmdText = `Crea el ${docName} completo. Define la estructura óptima (índice de secciones), desarrolla el contenido de cada sección y asegura la coherencia del conjunto.`;
+      objText = `Obtener un ${docName} listo para usar que cumpla exactamente: ${brief}`;
+      fmtText = `Documento completo con: índice de secciones → desarrollo de cada sección → conclusión o cierre según aplique. En formato apto para Word/Google Docs (markdown con encabezados ##).`;
+      rstText = `El registro debe ser profesional y adecuado a la audiencia. Máximo 800 palabras salvo que el propósito lo requiera. Sin relleno ni repeticiones.`;
+    }
+  } else { // pres
+    roleText = `experto en comunicación visual y narrativa de presentaciones ejecutivas, con experiencia en diseño de pitch decks, storytelling y estructuración de ideas para diapositivas`;
+    if (isRevisar) {
+      ctxText = `Voy a facilitarte una ${docName} para que la revises en detalle.${fileRef}`;
+      insText = `Debes revisar la ${docName} adjunta: flujo narrativo, claridad de cada slide, coherencia del mensaje global, impacto visual y efectividad comunicativa. Al finalizar, devuelve la presentación mejorada en el mismo formato original.`;
+      cmdText = `Analiza cada diapositiva individualmente y el conjunto global. Detecta slides débiles, mensajes confusos y problemas de flujo. Reescribe los textos que necesiten mejora y propone la estructura óptima.`;
+      objText = `Obtener una ${docName} que comunique con máxima claridad y persuasión, en el mismo formato que el original.`;
+      fmtText = `Devuelve: (1) Análisis slide por slide con problemas detectados, (2) Versión mejorada de cada slide con el texto corregido, en el mismo formato original (PPT o Google Slides).`;
+      rstText = `No cambies el diseño visual ni la estructura de la presentación. Solo mejora el contenido textual y la lógica narrativa.`;
+    } else {
+      ctxText = `Necesito crear una ${docName} nueva con el siguiente propósito: ${brief}`;
+      insText = `Debes diseñar la estructura completa de la ${docName}: qué slides incluir, en qué orden, qué mensaje transmite cada una y qué contenido concreto llevan.`;
+      cmdText = `Define el índice de slides (número, título y mensaje clave de cada una). Desarrolla el contenido textual de cada slide: título, puntos clave, posible subtítulo o CTA. Sugiere el tipo de elemento visual recomendado para cada slide.`;
+      objText = `Obtener un guión de ${docName} completo, listo para maquetar, que transmita con claridad: ${brief}`;
+      fmtText = `Slide por slide: número → título → mensaje clave → puntos de contenido (máx. 4 bullets) → visual recomendado. Formato listo para PowerPoint o Google Slides.`;
+      rstText = `Máximo 10-12 slides salvo que sea estrictamente necesario. Textos concisos por slide: nunca más de 30 palabras en el cuerpo. Sin relleno ni redundancias.`;
+    }
+  }
+
+  // AI-specific adaptations
+  let prefix = '';
+  let suffix = '';
+  if (aiId === 'gemini' || aiId === 'deepseek') prefix = 'Razona paso a paso antes de responder.\n\n';
+  if (aiId === 'copilot') suffix = '\n\n[NOTA: Responde en español. Formato compatible con Microsoft Office.]';
+  if (aiId === 'perplexity') suffix = '\n\n[NOTA: Incluye fuentes actualizadas y datos verificados donde sea relevante.]';
+  if (aiId === 'kimi') suffix = '\n\n[NOTA: Aprovecha la capacidad de contexto extendido para revisar el documento completo sin omitir ninguna sección.]';
+  if (aiId === 'grok') suffix = '\n\nSé directo. Sin rodeos ni diplomacia innecesaria.';
+
+  const fields = [
+    ['ROL', roleText],
+    ['CONTEXTO', ctxText],
+    ['INSTRUCCIÓN', insText],
+    ['COMANDO', cmdText],
+    ['OBJETIVO', objText],
+    ['FORMATO', fmtText],
+    ['RESTRICCIONES', rstText],
+  ];
+
+  const colorMap = {
+    'ROL': 'tok-rol', 'CONTEXTO': 'tok-ctx', 'INSTRUCCIÓN': 'tok-ins',
+    'COMANDO': 'tok-cmd', 'OBJETIVO': 'tok-obj', 'FORMATO': 'tok-fmt', 'RESTRICCIONES': 'tok-rst'
+  };
+
+  const plainParts = fields.map(([k, v]) => `# ${k}: ${v}`).join('\n\n');
+  let plain = prefix + plainParts + suffix;
+
+  const htmlParts = fields.map(([k, v]) => `<span class="${colorMap[k]}"># ${k}:</span> ${esc(v)}`).join('\n\n');
+  let html = '';
+  if (prefix) html += `<span class="tok-note">${esc(prefix)}</span>`;
+  html += htmlParts;
+  if (suffix) html += `\n\n<span class="tok-note">${esc(suffix.trim())}</span>`;
+
+  return { plain, html };
+}
+
+function esc(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ═══════════════════════════════════════
+// COPY PROMPT
+// ═══════════════════════════════════════
+function copyPrompt() {
+  if (!currentPromptText) { toast('Selecciona una IA primero', true); return; }
+  navigator.clipboard.writeText(currentPromptText).then(() => {
+    const btn = document.getElementById('btn-copy-prompt');
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '⎘ Copiar';
+      btn.classList.remove('copied');
+    }, 2500);
+    toast('Prompt copiado al portapapeles ✓');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = currentPromptText;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Copiado ✓');
+  });
+}
+
+// ═══════════════════════════════════════
+// PROJECTS
+// ═══════════════════════════════════════
+let projects = JSON.parse(localStorage.getItem('aidoc_projects') || '[]');
+let projectFilter = 'all';
+
+function saveProject() {
+  if (!currentPromptText || !state.selectedAI) { toast('Genera un prompt primero', true); return; }
+  const proj = {
+    id: Date.now(),
+    docType: state.docType,
+    action: state.action,
+    brief: state.brief,
+    fileName: state.fileName,
+    fileLink: state.fileLink,
+    fileMode: state.fileMode,
+    aiId: state.selectedAI,
+    aiName: AI_DB[state.selectedAI]?.name || state.selectedAI,
+    prompt: currentPromptText,
+    date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+    time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  };
+  projects.unshift(proj);
+  if (projects.length > 50) projects.pop();
+  localStorage.setItem('aidoc_projects', JSON.stringify(projects));
+  toast('Proyecto guardado ✓');
+}
+
+function filterProjects(f, btn) {
+  projectFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderProjects();
+}
+
+function renderProjects() {
+  const filtered = projects.filter(p => {
+    if (projectFilter === 'all') return true;
+    if (['calc','doc','pres'].includes(projectFilter)) return p.docType === projectFilter;
+    if (['crear','revisar'].includes(projectFilter)) return p.action === projectFilter;
+    return true;
+  });
+
+  document.getElementById('proj-count').textContent = projects.length + ' guardados';
+
+  const wrap = document.getElementById('proj-list-wrap');
+  if (filtered.length === 0) {
+    wrap.innerHTML = `<div class="projects-empty"><div class="projects-empty-icon">📂</div>No hay proyectos${projectFilter !== 'all' ? ' con este filtro' : ' guardados'}.</div>`;
+    return;
+  }
+
+  const docIcons = { calc: '📊', doc: '📝', pres: '📽️' };
+  const docLabels = { calc: 'Cálculo', doc: 'Documento', pres: 'Presentación' };
+
+  wrap.innerHTML = `
+    <div class="project-list">
+      <div class="project-row project-row-header">
+        <span>Tipo</span><span>Acción</span><span>Descripción</span><span>IA usada</span><span style="text-align:right">Fecha</span>
+      </div>
+      ${filtered.map((p, i) => `
+        <div class="project-row" onclick="loadProject(${projects.indexOf(p)})">
+          <span><div class="proj-type-badge ${p.docType}">${docIcons[p.docType]} ${docLabels[p.docType]}</div></span>
+          <span><div class="proj-action-badge ${p.action}">${p.action.toUpperCase()}</div></span>
+          <span class="proj-desc">${esc(p.brief)}${p.fileName ? ' · ' + esc(p.fileName) : ''}</span>
+          <span class="proj-ai">${p.aiName}</span>
+          <span class="proj-date">${p.date} ${p.time} <button class="proj-del-btn" onclick="event.stopPropagation();deleteProject(${projects.indexOf(p)})">✕</button></span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function loadProject(idx) {
+  const p = projects[idx];
+  if (!p) return;
+  state = { docType: p.docType, action: p.action, fileName: p.fileName, fileLink: p.fileLink || null, fileMode: p.fileMode || 'file', brief: p.brief, selectedAI: p.aiId };
+  currentPromptText = p.prompt;
+
+  // Switch to wizard result view
+  switchView('wizard', document.querySelector('.hdr-tab'));
+  document.querySelectorAll('.hdr-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.hdr-tab').classList.add('active');
+
+  // Rebuild results
+  goStepDirect(4);
+  const docLabels = { calc: '📊 Hoja de cálculo', doc: '📝 Documento', pres: '📽️ Presentación' };
+  const actLabels = { crear: '✨ Crear', revisar: '🔍 Revisar' };
+  document.getElementById('result-context-label').textContent =
+    `${docLabels[p.docType]} · ${actLabels[p.action]}${p.fileName ? ' · ' + p.fileName : ''}`;
+
+  const ranking = getRanking(p.docType, p.action);
+  const top3 = ranking.slice(0, 3);
+  const rest = ranking.slice(3, 6);
+  const grid = document.getElementById('rec-grid');
+  grid.innerHTML = '';
+
+  [...top3, ...rest].forEach((ai, idx2) => {
+    const rankClass = idx2 === 0 ? 'rank-1' : idx2 === 1 ? 'rank-2' : idx2 === 2 ? 'rank-3' : 'rank-other';
+    const rankLabel = idx2 === 0 ? '★ PRIMERA OPCIÓN' : idx2 === 1 ? '2ª opción' : idx2 === 2 ? '3ª opción' : '';
+    const whyKey = `${p.docType}_${p.action}`;
+    const card = document.createElement('div');
+    card.className = `rec-card ${rankClass}`;
+    card.dataset.aiId = ai.id;
+    const selected = ai.id === p.aiId ? ' selected-rec' : '';
+    card.className += selected;
+    card.innerHTML = `
+      <div class="rec-inner">
+        <div class="rec-rank ${rankClass}">${rankLabel}</div>
+        <div class="rec-ai-name">${ai.name}</div>
+        <div class="rec-ai-sub">${ai.sub}</div>
+        <div class="rec-why">${ai.why[whyKey] || ''}</div>
+        <div class="rec-tags">${(ai.tags[p.docType] || []).map(t => `<span class="rec-tag">${t}</span>`).join('')}</div>
+        <button class="rec-select-btn" onclick="selectAIForPrompt('${ai.id}', this.closest('.rec-card'))">Ver prompt →</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  document.getElementById('prompt-ai-name').textContent = AI_DB[p.aiId]?.name + ' — ' + AI_DB[p.aiId]?.sub;
+  document.getElementById('prompt-body').innerHTML = buildPrompt(p.aiId).html;
+  document.getElementById('prompt-section').style.display = 'block';
+
+  toast('Proyecto cargado ✓');
+}
+
+function deleteProject(idx) {
+  if (!confirm('¿Eliminar este proyecto?')) return;
+  projects.splice(idx, 1);
+  localStorage.setItem('aidoc_projects', JSON.stringify(projects));
+  renderProjects();
+  toast('Proyecto eliminado');
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function toast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+renderProjects();
+</script>
+</body>
+</html>
